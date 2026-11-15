@@ -8,14 +8,13 @@ export interface CourierAddress {
 
 export interface UserProfile {
   id: string;
+  uid: string;
   name: string;
   mobile: string;
   email: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
   courierAddress?: CourierAddress;
   createdAt: string;
-}
-
-export interface RegisteredAccount {
-  profile: UserProfile;
-  password: string; // Stored securely in client storage
+  updatedAt?: string;
 }

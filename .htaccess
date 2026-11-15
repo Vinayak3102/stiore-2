@@ -1,19 +1,44 @@
-# Hostinger LiteSpeed / Apache Configuration for ShivAmrit Healers SPA
+# Hostinger LiteSpeed / Apache Configuration for ShivAmrit Healers SPA & PHP API
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # 1. Force HTTPS on Hostinger
+  # 1. Force HTTPS on Hostinger (skip localhost)
+  RewriteCond %{HTTP_HOST} !^localhost [NC]
+  RewriteCond %{HTTP_HOST} !^127\.0\.0\.1 [NC]
   RewriteCond %{HTTPS} off
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # 2. Serve static files directly if they exist
+  # 2. Block direct web access to private PHP storage & config data
+  RewriteRule ^api/storage/ - [F,L]
+  RewriteRule ^api/catalog-data\.json$ - [F,L]
+  RewriteRule ^api/config\.php$ - [F,L]
+
+  # 3. Route extensionless /api/* endpoints to Hostinger PHP handlers
+  RewriteRule ^api/health/?$ api/health.php [L,QSA]
+  RewriteRule ^api/payment-config/?$ api/payment-config.php [L,QSA]
+  RewriteRule ^api/catalog/?$ api/catalog.php [L,QSA]
+  RewriteRule ^api/coupon/validate/?$ api/coupon-validate.php [L,QSA]
+  RewriteRule ^api/create-order/?$ api/create-order.php [L,QSA]
+  RewriteRule ^api/create-cod-order/?$ api/create-cod-order.php [L,QSA]
+  RewriteRule ^api/verify-payment/?$ api/verify-payment.php [L,QSA]
+  RewriteRule ^api/webhooks/razorpay/?$ api/webhook.php [L,QSA]
+  RewriteRule ^api/orders/track/?$ api/orders-track.php [L,QSA]
+  RewriteRule ^api/orders/action/?$ api/orders-action.php [L,QSA]
+  RewriteRule ^api/bookings/?$ api/bookings.php [L,QSA]
+  RewriteRule ^api/workshops/register/?$ api/workshops-register.php [L,QSA]
+  RewriteRule ^api/newsletter/unsubscribe/?$ api/newsletter.php?action=unsubscribe [L,QSA]
+  RewriteRule ^api/newsletter/?$ api/newsletter.php [L,QSA]
+  RewriteRule ^api/reviews/?$ api/reviews.php [L,QSA]
+  RewriteRule ^api/leads/?$ api/leads.php [L,QSA]
+
+  # 4. Serve existing static files or PHP files directly
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 3. Fallback all SPA routes to index.html
+  # 5. Fallback all SPA routes to index.html
   RewriteRule ^ index.html [L]
 </IfModule>
 

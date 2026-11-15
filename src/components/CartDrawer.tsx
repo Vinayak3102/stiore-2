@@ -1,7 +1,8 @@
-import React from 'react';
-import { X, Plus, Minus, Trash2, ShoppingBag, ShieldCheck, ArrowRight, Tag } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ShieldCheck, ArrowRight, Tag, BellRing, CheckCircle2 } from 'lucide-react';
 import type { ProductItem } from '../data/storeProducts';
 import { FREE_SHIPPING_LIMIT } from '../data/storeProducts';
+import { getAuthIdToken, getCurrentUser } from '../utils/authStorage';
 
 export interface CartLineItem {
   product: ProductItem;
@@ -25,11 +26,61 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onRemoveItem,
   onProceedCheckout,
 }) => {
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderName, setReminderName] = useState(() => getCurrentUser()?.name || '');
+  const [reminderContact, setReminderContact] = useState(
+    () => getCurrentUser()?.mobile || getCurrentUser()?.email || ''
+  );
+  const [reminderConsent, setReminderConsent] = useState(false);
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [reminderNotice, setReminderNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+
   if (!isOpen) return null;
 
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_LIMIT - subtotal);
   const shippingProgress = Math.min(100, Math.round((subtotal / FREE_SHIPPING_LIMIT) * 100));
+
+  const handleSaveReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReminderNotice(null);
+    const contact = reminderContact.trim();
+    const isEmail = contact.includes('@');
+    if (!reminderConsent) {
+      setReminderNotice({ ok: false, msg: 'Please tick the opt-in consent box first.' });
+      return;
+    }
+    setReminderSaving(true);
+    try {
+      const token = await getAuthIdToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch('/api/cart-recovery', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          customerName: reminderName.trim() || 'Seeker',
+          customerPhone: isEmail ? '' : contact,
+          customerEmail: isEmail ? contact : '',
+          items: items.map((i) => ({ id: i.product.id, qty: i.qty })),
+          consent: reminderConsent,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReminderNotice({ ok: false, msg: data?.error || 'Could not save cart reminder.' });
+      } else {
+        setReminderNotice({
+          ok: true,
+          msg: data?.message || 'Cart reminder saved! Automatically pauses once ordered.',
+        });
+      }
+    } catch {
+      setReminderNotice({ ok: false, msg: 'Unable to reach server right now.' });
+    } finally {
+      setReminderSaving(false);
+    }
+  };
 
   return (
     <div
@@ -158,7 +209,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* Footer & Checkout */}
           {items.length > 0 && (
-            <div className="border-t border-slate-200 p-6 bg-white space-y-4">
+            <div className="border-t border-slate-200 p-6 bg-white space-y-3.5">
               <div className="space-y-1.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
@@ -183,8 +234,74 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 bg-amber-50/80 p-2.5 rounded-md border border-amber-200/60">
-                <Tag className="size-3.5 text-[#d4af37]" />
+                <Tag className="size-3.5 text-[#d4af37] shrink-0" />
                 <span>Coupon code <strong>SHIVAMRIT10</strong> available at checkout (10% OFF)!</span>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setShowReminderForm((prev) => !prev)}
+                  className="w-full flex items-center justify-between text-left font-semibold text-[#18283e] cursor-pointer"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <BellRing className="size-3.5 text-[#e07038]" />
+                    <span>Save Cart &amp; Opt-In for Gentle Reminder</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500">{showReminderForm ? 'Hide' : 'Optional'}</span>
+                </button>
+
+                {showReminderForm && (
+                  <form onSubmit={handleSaveReminder} className="mt-2.5 space-y-2 border-t border-slate-200 pt-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={reminderName}
+                        onChange={(e) => setReminderName(e.target.value)}
+                        placeholder="Your name"
+                        aria-label="Name for cart reminder"
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded text-[11px]"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={reminderContact}
+                        onChange={(e) => setReminderContact(e.target.value)}
+                        placeholder="10-digit WhatsApp or Email"
+                        aria-label="WhatsApp number or email for cart reminder"
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded text-[11px]"
+                      />
+                    </div>
+                    <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={reminderConsent}
+                        onChange={(e) => setReminderConsent(e.target.checked)}
+                        className="mt-0.5 rounded text-[#18283e]"
+                      />
+                      <span>
+                        I consent to a one-time reminder if I pause before completing my order (auto-stops when ordered).
+                      </span>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={reminderSaving}
+                      className="w-full py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100 text-[#18283e] font-bold text-[11px] cursor-pointer"
+                    >
+                      {reminderSaving ? 'Saving Reminder...' : 'Save Opt-In Cart Reminder'}
+                    </button>
+                    {reminderNotice && (
+                      <p
+                        className={`text-[11px] flex items-center gap-1 ${
+                          reminderNotice.ok ? 'text-emerald-700 font-semibold' : 'text-rose-600'
+                        }`}
+                      >
+                        {reminderNotice.ok && <CheckCircle2 className="size-3.5 shrink-0" />}
+                        <span>{reminderNotice.msg}</span>
+                      </p>
+                    )}
+                  </form>
+                )}
               </div>
 
               <button
@@ -192,14 +309,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   onClose();
                   onProceedCheckout();
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-[#18283e] hover:bg-[#121e30] text-white py-3 px-4 rounded-lg text-sm font-semibold tracking-wide transition shadow-md"
+                className="w-full flex items-center justify-center gap-2 bg-[#18283e] hover:bg-[#121e30] text-white py-3 px-4 rounded-lg text-sm font-semibold tracking-wide transition shadow-md cursor-pointer"
               >
                 Proceed to Checkout
                 <ArrowRight className="size-4 text-[#d4af37]" />
               </button>
 
               <p className="text-[10.5px] text-center text-slate-400">
-                Taxes included. Authentic certificates & energization card in every parcel.
+                Taxes included. Authentic certificates &amp; energization card in every parcel.
               </p>
             </div>
           )}

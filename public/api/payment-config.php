@@ -1,8 +1,17 @@
 <?php
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+require_once __DIR__ . '/config.php';
+shivamrit_send_cors_headers();
 
-$keyId = getenv('RAZORPAY_KEY_ID') ?: 'rzp_test_TqRijVWiANkpat';
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+$keyId = shivamrit_env('RAZORPAY_KEY_ID');
+$configured = $keyId !== '' && shivamrit_env('RAZORPAY_KEY_SECRET') !== '';
+
 echo json_encode([
-    'key_id' => $keyId
+    'configured' => $configured,
+    'key_id' => $configured ? $keyId : '',
+    'mode' => strpos($keyId, 'rzp_live_') === 0 ? 'live' : ($configured ? 'test' : 'unconfigured'),
 ]);

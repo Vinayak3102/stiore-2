@@ -1,8 +1,6 @@
 <?php
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+require_once __DIR__ . '/config.php';
+shivamrit_send_cors_headers();
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -15,28 +13,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$raw = file_get_contents('php://input');
-$body = json_decode($raw, true);
-
-$amount = isset($body['amount']) ? intval($body['amount']) : 0;
-$currency = isset($body['currency']) ? strtoupper(trim($body['currency'])) : 'INR';
-$receipt = isset($body['receipt']) ? trim($body['receipt']) : 'rcpt_' . time();
-
-// Minimum amount validation: 100 paise (₹1)
-if ($amount < 100) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Amount must be at least 100 paise (₹1)']);
+$keyId = shivamrit_env('RAZORPAY_KEY_ID');
+$keySecret = shivamrit_env('RAZORPAY_KEY_SECRET');
+if ($keyId === '' || $keySecret === '') {
+    http_response_code(503);
+    echo json_encode(['error' => 'Razorpay gateway is not configured on the server.']);
     exit;
 }
 
-$keyId = getenv('RAZORPAY_KEY_ID') ?: 'rzp_test_TqRijVWiANkpat';
-$keySecret = getenv('RAZORPAY_KEY_SECRET') ?: 'xtHw6RptWJzvEYac0lWXQymQ';
+$raw = file_get_contents('php://input');
+$body = json_decode((string)$raw, true);
+if (!is_array($body)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid JSON request body']);
+    exit;
+}
+
+$requestedItems = is_array($body['items'] ?? null) ? $body['items'] : [];
+$couponCode = (string)($body['couponCode'] ?? '');
+$calc = shivamrit_calculate_order($requestedItems, $couponCode);
+
+if (!$calc['valid']) {
+    http_response_code(400);
+    echo json_encode(['error' => $calc['error'] ?? 'Invalid order items']);
+    exit;
+}
+
+$amountInPaise = intval($calc['grandTotal']) * 100;
+$currency = 'INR';
+$storeOrderId = 'SH-' . time() . '-' . random_int(100, 999);
+$receipt = 'sh_rcpt_' . time();
 
 $payload = json_encode([
-    'amount' => $amount,
+    'amount' => $amountInPaise,
     'currency' => $currency,
     'receipt' => $receipt,
-    'notes' => $body['notes'] ?? ['store' => 'ShivAmrit Healers']
+    'notes' => [
+        'store' => 'ShivAmrit Healers',
+        'store_order_id' => $storeOrderId,
+    ],
 ]);
 
 $ch = curl_init('https://api.razorpay.com/v1/orders');
@@ -46,7 +61,7 @@ curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Content-Type: application/json',
-    'Content-Length: ' . strlen($payload)
+    'Content-Length: ' . strlen((string)$payload),
 ]);
 
 $response = curl_exec($ch);
@@ -60,15 +75,48 @@ if ($curlError) {
     exit;
 }
 
-http_response_code($httpCode ?: 200);
-$data = json_decode($response, true);
-
+$data = json_decode((string)$response, true);
 if ($httpCode >= 200 && $httpCode < 300 && isset($data['id'])) {
+    $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
+    $shipping = is_array($body['shippingAddress'] ?? null) ? $body['shippingAddress'] : [];
+
+    shivamrit_save_order_record([
+        'orderId' => $storeOrderId,
+        'customerName' => trim((string)($customer['name'] ?? '')),
+        'customerPhone' => trim((string)($customer['phone'] ?? '')),
+        'customerEmail' => trim((string)($customer['email'] ?? '')),
+        'shippingStreet' => trim((string)($shipping['street'] ?? '')),
+        'shippingCity' => trim((string)($shipping['city'] ?? '')),
+        'shippingPincode' => trim((string)($shipping['pincode'] ?? '')),
+        'items' => $calc['items'],
+        'subtotal' => $calc['subtotal'],
+        'discountAmount' => $calc['discountAmount'],
+        'couponCode' => $calc['couponCode'],
+        'shippingFee' => $calc['shippingFee'],
+        'grandTotal' => $calc['grandTotal'],
+        'paymentMethod' => 'razorpay',
+        'paymentStatus' => 'pending',
+        'fulfillmentStatus' => 'pending_payment',
+        'razorpayOrderId' => $data['id'],
+        'razorpayPaymentId' => '',
+        'createdAt' => gmdate('c'),
+        'updatedAt' => gmdate('c'),
+    ]);
+
+    http_response_code(200);
     echo json_encode([
+        'store_order_id' => $storeOrderId,
         'order_id' => $data['id'],
         'amount' => $data['amount'],
-        'currency' => $data['currency']
+        'currency' => $data['currency'],
+        'totals' => [
+            'subtotal' => $calc['subtotal'],
+            'discountAmount' => $calc['discountAmount'],
+            'shippingFee' => $calc['shippingFee'],
+            'grandTotal' => $calc['grandTotal'],
+        ],
     ]);
 } else {
-    echo $response ?: json_encode(['error' => 'Failed to create Razorpay order']);
+    http_response_code($httpCode ?: 500);
+    echo json_encode(['error' => $data['error']['description'] ?? 'Failed to create Razorpay order']);
 }

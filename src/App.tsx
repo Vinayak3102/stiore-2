@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import {
   ShoppingBag,
   Search,
@@ -33,6 +33,8 @@ import {
   Leaf,
   Layers,
   Flame,
+  Calendar,
+  Truck,
 } from 'lucide-react';
 
 import {
@@ -41,7 +43,6 @@ import {
   BRAND_TAGLINE,
   ANNOUNCEMENT_TEXT,
   logoImg,
-  studioHeroImg,
   showcaseAriesImg,
   showcaseVirgoImg,
   bannerZodiacImg,
@@ -50,14 +51,54 @@ import {
   type ProductItem,
 } from './data/storeProducts';
 
-import { QuickViewModal } from './components/QuickViewModal';
-import { CartDrawer, type CartLineItem } from './components/CartDrawer';
-import { CheckoutModal } from './components/CheckoutModal';
-import { SearchModal } from './components/SearchModal';
-import { ChakraQuizModal } from './components/ChakraQuizModal';
-import { AuthModal } from './components/AuthModal';
+import { type CartLineItem } from './components/CartDrawer';
+import { type InfoModalTab } from './components/InfoPagesModal';
+import { HeroSessionShowcase } from './components/HeroSessionShowcase';
+import { PWAInstallButton, OfflineIndicator } from './components/PWAInstallBanner';
+import { filterAndSortProducts, type ProductSortOption } from './utils/storeLogic';
+import { syncProductSeoMetadata } from './utils/seoMetadata';
+
+const QuickViewModal = lazy(() =>
+  import('./components/QuickViewModal').then((m) => ({ default: m.QuickViewModal }))
+);
+const CartDrawer = lazy(() =>
+  import('./components/CartDrawer').then((m) => ({ default: m.CartDrawer }))
+);
+const CheckoutModal = lazy(() =>
+  import('./components/CheckoutModal').then((m) => ({ default: m.CheckoutModal }))
+);
+const SearchModal = lazy(() =>
+  import('./components/SearchModal').then((m) => ({ default: m.SearchModal }))
+);
+const ChakraQuizModal = lazy(() =>
+  import('./components/ChakraQuizModal').then((m) => ({ default: m.ChakraQuizModal }))
+);
+const AuthModal = lazy(() =>
+  import('./components/AuthModal').then((m) => ({ default: m.AuthModal }))
+);
+const TrackOrderModal = lazy(() =>
+  import('./components/TrackOrderModal').then((m) => ({ default: m.TrackOrderModal }))
+);
+const BookingWorkshopModal = lazy(() =>
+  import('./components/BookingWorkshopModal').then((m) => ({ default: m.BookingWorkshopModal }))
+);
+const AdminDashboardModal = lazy(() =>
+  import('./components/AdminDashboardModal').then((m) => ({ default: m.AdminDashboardModal }))
+);
+const InfoPagesModal = lazy(() =>
+  import('./components/InfoPagesModal').then((m) => ({ default: m.InfoPagesModal }))
+);
+const BundleBuilderModal = lazy(() =>
+  import('./components/BundleBuilderModal').then((m) => ({ default: m.BundleBuilderModal }))
+);
 import type { UserProfile } from './types/auth';
-import { getCurrentUser } from './utils/authStorage';
+import {
+  getCurrentUser,
+  subscribeToAuth,
+  syncCartItemToFirestore,
+  syncWishlistItemToFirestore,
+  loadCloudCartAndWishlist,
+} from './utils/authStorage';
 
 export default function App() {
   // Navigation & Page State
@@ -79,6 +120,18 @@ export default function App() {
   const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [trackOrderOpen, setTrackOrderOpen] = useState(false);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingInitialTab, setBookingInitialTab] = useState<'consultations' | 'workshops'>('consultations');
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [infoModalTab, setInfoModalTab] = useState<InfoModalTab>('shipping');
+  const [bundleBuilderOpen, setBundleBuilderOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<ProductSortOption>('featured');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [liveInventoryMap, setLiveInventoryMap] = useState<
+    Record<string, { inventory: number; active: boolean }>
+  >({});
   const [isMobile, setIsMobile] = useState(false);
 
   // User Profile & Authentication with saved Courier Address
@@ -93,34 +146,124 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Hydrate deep-linked ?product=<id> modal and live catalog inventory on mount
   useEffect(() => {
-    const syncUser = () => {
-      setCurrentUser(getCurrentUser());
+    const params = new URLSearchParams(window.location.search);
+    const productParam = params.get('product');
+    if (productParam) {
+      const matched = ZODIAC_PRODUCTS.find(
+        (p) => p.id === productParam || p.slug === productParam
+      );
+      if (matched) {
+        setQuickViewProduct(matched);
+      }
+    }
+
+    let cancelled = false;
+    fetch('/api/catalog')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.products)) return;
+        const nextMap: Record<string, { inventory: number; active: boolean }> = {};
+        for (const p of data.products) {
+          if (p && typeof p.id === 'string') {
+            nextMap[p.id] = {
+              inventory: Number(p.inventory ?? 0),
+              active: p.active !== false,
+            };
+          }
+        }
+        setLiveInventoryMap(nextMap);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('shivamrit-auth-change', syncUser);
-    return () => window.removeEventListener('shivamrit-auth-change', syncUser);
   }, []);
 
-  // Cart & Wishlist persistence
+  // Keep ?product=<id> and dynamic Product SEO / JSON-LD synchronized when Quick View opens/closes
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (quickViewProduct) {
+        url.searchParams.set('product', quickViewProduct.id);
+      } else {
+        url.searchParams.delete('product');
+      }
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      // ignore history errors
+    }
+    const liveEntry = quickViewProduct ? liveInventoryMap[quickViewProduct.id] : undefined;
+    const isInStock = liveEntry ? liveEntry.active && liveEntry.inventory > 0 : true;
+    syncProductSeoMetadata(quickViewProduct, isInStock);
+  }, [quickViewProduct, liveInventoryMap]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth(async (profile) => {
+      setCurrentUser(profile);
+      if (profile && profile.emailVerified) {
+        const cloud = await loadCloudCartAndWishlist(profile.uid);
+        if (cloud.cart.length > 0) {
+          setCartItems((prev) => {
+            const merged = [...prev];
+            for (const item of cloud.cart) {
+              const prod = ZODIAC_PRODUCTS.find((p) => p.id === item.productId);
+              if (prod && !merged.some((m) => m.product.id === item.productId)) {
+                merged.push({ product: prod, qty: item.qty });
+              }
+            }
+            return merged;
+          });
+        }
+        if (cloud.wishlist.length > 0) {
+          setWishlist((prev) => Array.from(new Set([...prev, ...cloud.wishlist])));
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Cart & Wishlist persistence (empty initial state for fresh storefront sessions)
   const [cartItems, setCartItems] = useState<CartLineItem[]>(() => {
     try {
       const saved = localStorage.getItem('shivamrit-cart');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // fallback
     }
-    // Default starting cart item matching screenshot
-    return [{ product: ZODIAC_PRODUCTS[0], qty: 1 }];
+    return [];
   });
 
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('shivamrit-wishlist');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // fallback
     }
-    return ['aries-bracelet', 'gemini-bracelet'];
+    return [];
+  });
+
+  const [showResumeCartBanner, setShowResumeCartBanner] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('shivamrit-cart');
+      const dismissed = sessionStorage.getItem('shivamrit-cart-banner-dismissed') === '1';
+      if (saved && !dismissed) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) && parsed.length > 0;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
   });
 
   // Quantity counters for inline product cards
@@ -131,6 +274,9 @@ export default function App() {
 
   // Newsletter feedback state
   const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterConsent, setNewsletterConsent] = useState(true);
+  const [newsletterMode, setNewsletterMode] = useState<'subscribe' | 'unsubscribe'>('subscribe');
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
   const [newsletterMsg, setNewsletterMsg] = useState('');
 
   // Persist Cart
@@ -195,9 +341,11 @@ export default function App() {
   const handleAddToCart = (product: ProductItem, qty = 1) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const nextQty = existing ? existing.qty + qty : qty;
+      void syncCartItemToFirestore(product.id, nextQty);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, qty: item.qty + qty } : item
+          item.product.id === product.id ? { ...item, qty: nextQty } : item
         );
       }
       return [...prev, { product, qty }];
@@ -216,52 +364,74 @@ export default function App() {
       handleRemoveCartItem(productId);
       return;
     }
+    void syncCartItemToFirestore(productId, newQty);
     setCartItems((prev) =>
       prev.map((item) => (item.product.id === productId ? { ...item, qty: newQty } : item))
     );
   };
 
   const handleRemoveCartItem = (productId: string) => {
+    void syncCartItemToFirestore(productId, 0);
     setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
   const toggleWishlist = (id: string) => {
-    setWishlist((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    setWishlist((prev) => {
+      const exists = prev.includes(id);
+      void syncWishlistItemToFirestore(id, !exists);
+      return exists ? prev.filter((item) => item !== id) : [...prev, id];
+    });
   };
 
   const scrollToGiftGuide = () => {
     document.getElementById('gift-guide')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Filtered products for Gift Guide
+  // Filtered & sorted products for Gift Guide
   const giftGuideProducts = React.useMemo(() => {
-    if (giftGuideTab === 'single') {
-      return ZODIAC_PRODUCTS.filter(
-        (p) => p.braceletType === 'single' || p.category === 'Single Crystal Bracelets'
-      );
-    }
-    if (giftGuideTab === 'combination' || giftGuideTab === 'zodiac') {
-      return ZODIAC_PRODUCTS.filter(
+    let baseList: ProductItem[] = [];
+    if (selectedStoneFilter) {
+      const needle = selectedStoneFilter.toLowerCase();
+      const matched = ZODIAC_PRODUCTS.filter(
         (p) =>
-          p.braceletType === 'combination' ||
-          p.category === 'Combination Bracelets' ||
-          p.category === 'Zodiac Bracelets'
+          p.stones.toLowerCase().includes(needle) ||
+          p.stoneType.toLowerCase().includes(needle) ||
+          p.name.toLowerCase().includes(needle)
       );
+      if (matched.length > 0) baseList = matched;
     }
-    if (giftGuideTab === 'salts') {
-      return ZODIAC_PRODUCTS.filter((p) => p.category === 'Botanicals');
+
+    if (baseList.length === 0) {
+      if (giftGuideTab === 'single') {
+        baseList = ZODIAC_PRODUCTS.filter(
+          (p) => p.braceletType === 'single' || p.category === 'Single Crystal Bracelets'
+        );
+      } else if (giftGuideTab === 'combination' || giftGuideTab === 'zodiac') {
+        baseList = ZODIAC_PRODUCTS.filter(
+          (p) =>
+            p.braceletType === 'combination' ||
+            p.category === 'Combination Bracelets' ||
+            p.category === 'Zodiac Bracelets'
+        );
+      } else if (giftGuideTab === 'salts') {
+        baseList = ZODIAC_PRODUCTS.filter((p) => p.category === 'Botanicals');
+      } else if (giftGuideTab === 'stones') {
+        baseList = ZODIAC_PRODUCTS.filter(
+          (p) => p.braceletType === 'single' || p.category === 'Single Crystal Bracelets'
+        );
+      } else {
+        baseList = ZODIAC_PRODUCTS.filter(
+          (p) => p.category === 'Gift Sets' || p.category === 'Pendants' || p.bestseller
+        );
+      }
     }
-    if (giftGuideTab === 'stones') {
-      return ZODIAC_PRODUCTS.filter(
-        (p) => p.braceletType === 'single' || p.category === 'Single Crystal Bracelets'
-      );
-    }
-    return ZODIAC_PRODUCTS.filter(
-      (p) => p.category === 'Gift Sets' || p.category === 'Pendants' || p.bestseller
-    );
-  }, [giftGuideTab]);
+
+    return filterAndSortProducts(baseList, {
+      inStockOnly,
+      sortBy,
+      liveInventoryMap,
+    });
+  }, [giftGuideTab, selectedStoneFilter, inStockOnly, sortBy, liveInventoryMap]);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col antialiased">
@@ -283,8 +453,8 @@ export default function App() {
 
       {/* 2. MAIN HEADER (ENLARGED LOGO & PROMINENT NAVIGATION) */}
       <header className="reference-header">
-        <div className="reference-header-inner px-4 sm:px-8">
-          {/* Brand Logo & Name - Much bigger and prominent */}
+        <div className="reference-header-inner">
+          {/* Brand Logo & Name */}
           <a
             href="/"
             onClick={(e) => {
@@ -294,23 +464,19 @@ export default function App() {
             }}
             className="reference-brand group"
           >
-            <div className="relative">
+            <div className="relative shrink-0">
               <img
                 src={logoImg}
                 alt="ShivAmrit Healers sacred logo"
-                className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover p-1 bg-white/10 ring-2 ring-[#d4af37]/70 shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-transform duration-300 group-hover:scale-105"
+                className="transition-transform duration-300 group-hover:scale-105"
               />
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4af37] text-[9px] font-black text-[#142438] shadow">
+              <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-[#d4af37] text-[8px] sm:text-[9px] font-black text-[#142438] shadow">
                 🕉️
               </span>
             </div>
-            <div>
-              <strong className="text-xl md:text-[25px] font-bold tracking-wide text-white drop-shadow-sm font-serif">
-                ShivAmrit Healers
-              </strong>
-              <small className="flex items-center gap-1.5 text-[9.5px] md:text-[10.5px] tracking-[0.26em] text-[#f3d37a] font-bold uppercase mt-0.5">
-                <span>ALIGN</span> • <span>HEAL</span> • <span>EVOLVE</span>
-              </small>
+            <div className="min-w-0">
+              <strong>ShivAmrit Healers</strong>
+              <small>ALIGN • HEAL • EVOLVE</small>
             </div>
           </a>
 
@@ -346,7 +512,7 @@ export default function App() {
                     : 'text-white/90 hover:text-white'
                 }`}
               >
-                <span>Customise Bracelet</span>
+                <span>Customise</span>
                 <ChevronDown
                   className={`size-3.5 transition-transform duration-200 ${
                     customiseDropdownOpen ? 'rotate-180 text-[#f3d37a]' : 'opacity-70'
@@ -385,7 +551,18 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  <div className="p-2.5 border-t border-white/10 mt-1">
+                  <div className="p-2.5 border-t border-white/10 mt-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomiseDropdownOpen(false);
+                        setBundleBuilderOpen(true);
+                      }}
+                      className="w-full text-center py-2 px-3 bg-[#1e334d] hover:bg-[#274060] text-[#f3d37a] border border-[#d4af37]/40 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Layers className="size-3.5" />
+                      <span>Build Custom Ritual Bundle</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -695,20 +872,30 @@ export default function App() {
               </span>
             </button>
 
-            {/* 6. Combos */}
+            {/* 6. Consultations & Workshops */}
             <button
               type="button"
               onClick={() => {
-                setGiftGuideTab('gifting');
-                scrollToGiftGuide();
+                setBookingInitialTab('consultations');
+                setBookingModalOpen(true);
               }}
               className="py-2 px-1 text-white/90 hover:text-white transition"
             >
-              Combos
+              Consultations
             </button>
 
-            {/* 7. Chakra Diagnostic Quiz */}
+            {/* 7. Track Order */}
             <button
+              type="button"
+              onClick={() => setTrackOrderOpen(true)}
+              className="py-2 px-1 text-white/90 hover:text-white transition"
+            >
+              Track Order
+            </button>
+
+            {/* 8. Chakra Diagnostic Quiz */}
+            <button
+              type="button"
               onClick={() => setIsChakraQuizOpen(true)}
               className="inline-flex items-center gap-1.5 text-amber-300 hover:text-amber-200"
             >
@@ -716,21 +903,17 @@ export default function App() {
               <span>Chakra Quiz</span>
             </button>
 
-            {/* 8. About */}
-            <button
-              onClick={() => setAboutModalOpen(true)}
-              className={activeNav === 'about' ? 'reference-active' : ''}
-            >
-              About
-            </button>
-
-            {/* 9. Contact */}
-            <button
-              onClick={() => setContactModalOpen(true)}
-              className={activeNav === 'contact' ? 'reference-active' : ''}
-            >
-              Contact
-            </button>
+            {/* 9. Verified Admin Console */}
+            {currentUser?.isAdmin && (
+              <button
+                type="button"
+                onClick={() => setAdminModalOpen(true)}
+                className="inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200 font-bold"
+              >
+                <ShieldCheck className="size-3.5" />
+                <span>Admin</span>
+              </button>
+            )}
           </nav>
 
           {/* Header Action Tools */}
@@ -742,7 +925,7 @@ export default function App() {
               title="Search store"
             >
               <Search className="size-4 shrink-0 text-white/90" />
-              <span className="font-normal text-white/85 hidden sm:inline text-xs">I'm looking for...</span>
+              <span className="font-normal text-white/85 hidden sm:inline lg:hidden xl:inline text-xs truncate">Search crystals...</span>
             </button>
 
             <button
@@ -760,47 +943,44 @@ export default function App() {
                   ? `Signed in as ${currentUser.name} (${currentUser.courierAddress?.streetAddress ? 'Saved Courier Address ✓' : 'Add Courier Address'})`
                   : "Sign In / Register (Save Courier Address for 1-Click Purchase)"
               }
-              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-all text-xs text-white border border-white/15"
+              className="header-auth-btn text-xs"
             >
-              <UserRound className="size-4 text-[#d4af37]" />
-              <span className="font-medium max-w-[110px] truncate hidden md:inline">
-                {currentUser ? `Namaste, ${currentUser.name.split(' ')[0]}` : 'Sign In'}
+              <UserRound className="size-4 shrink-0 text-[#d4af37]" />
+              <span className="font-medium max-w-[92px] truncate hidden xl:inline">
+                {currentUser ? currentUser.name.split(' ')[0] : 'Sign In'}
               </span>
-              {currentUser?.courierAddress?.streetAddress && (
-                <span className="hidden xl:inline text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-medium">
-                  Address Saved
-                </span>
-              )}
             </button>
 
             <button
               onClick={() => setWishlistModalOpen(true)}
               aria-label="Wishlist items"
-              className="relative hover:scale-110 transition-transform"
+              className="header-icon-btn hover:scale-110 transition-transform"
               title="Saved Wishlist"
             >
-              <Heart className={`size-5 ${wishlist.length > 0 ? 'fill-[#e07038] text-[#e07038]' : ''}`} />
+              <Heart className={`size-4 sm:size-5 ${wishlist.length > 0 ? 'fill-[#e07038] text-[#e07038]' : ''}`} />
               {wishlist.length > 0 && <span className="tool-badge">{wishlist.length}</span>}
             </button>
 
             <button
               onClick={() => setIsCartOpen(true)}
               aria-label="Shopping Cart"
-              className="relative hover:scale-110 transition-transform"
+              className="header-icon-btn hover:scale-110 transition-transform"
               title="View Cart"
             >
-              <ShoppingBag className="size-5 text-[#d4af37]" />
+              <ShoppingBag className="size-4 sm:size-5 text-[#d4af37]" />
               {cartCount > 0 && <span className="tool-badge">{cartCount}</span>}
             </button>
+
+            <PWAInstallButton variant="header" />
 
             {/* Mobile / Tablet Hamburger Button (Always visible on screens < 1024px) */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition flex items-center justify-center focus:outline-none"
+              className="lg:hidden header-icon-btn header-mobile-menu-btn bg-white/10 text-white hover:bg-white/20 transition focus:outline-none"
               aria-label="Toggle navigation menu"
               title="Menu"
             >
-              {isMobileMenuOpen ? <X className="size-5 text-[#d4af37]" /> : <Menu className="size-5 text-white" />}
+              {isMobileMenuOpen ? <X className="size-4 sm:size-5 text-[#d4af37]" /> : <Menu className="size-4 sm:size-5 text-white" />}
             </button>
           </div>
         </div>
@@ -875,6 +1055,36 @@ export default function App() {
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
+                setBookingInitialTab('consultations');
+                setBookingModalOpen(true);
+              }}
+              className="block w-full text-left py-1 text-white font-semibold hover:text-[#d4af37]"
+            >
+              🕯️ Consultations & Live Workshops
+            </button>
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setTrackOrderOpen(true);
+              }}
+              className="block w-full text-left py-1 text-white font-semibold hover:text-[#d4af37]"
+            >
+              📦 Track Your Order
+            </button>
+            {currentUser?.isAdmin && (
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setAdminModalOpen(true);
+                }}
+                className="block w-full text-left py-1 text-emerald-300 font-bold hover:text-emerald-200"
+              >
+                🛡️ Admin Console
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
                 setGiftGuideTab('gifting');
                 scrollToGiftGuide();
               }}
@@ -942,28 +1152,23 @@ export default function App() {
         )}
       </header>
 
-      {/* 3. HERO SECTION */}
-      <section className="reference-hero" aria-label="ShivAmrit crystal bracelets hero">
-        <img
-          src={studioHeroImg}
-          alt="Artisan jeweller crafting authentic natural gemstone bracelets with raw crystal beads"
-          width={1920}
-          height={640}
-          className="reference-hero-photo"
-        />
-        <div className="reference-hero-shade" />
-        <div className="shell reference-hero-inner">
-          <h1>ShivAmrit Healers</h1>
-          <p className="hero-tagline">{BRAND_TAGLINE}</p>
-          <p className="hero-description">
-            Natural stone colours. A connection that feels personal.
-            Find a bracelet inspired by your sign.
-          </p>
-          <button onClick={scrollToGiftGuide} className="hero-cta">
-            Shop now
-          </button>
-        </div>
-      </section>
+      {/* 3. HERO SECTION — CONSULTATIONS & WORKSHOPS SLIDESHOW + LEAD INQUIRY FORM */}
+      <HeroSessionShowcase
+        onBookConsultations={() => {
+          setBookingInitialTab('consultations');
+          setBookingModalOpen(true);
+        }}
+        onViewWorkshops={() => {
+          setBookingInitialTab('workshops');
+          setBookingModalOpen(true);
+        }}
+        onTrackOrder={() => setTrackOrderOpen(true)}
+        onShopCatalog={scrollToGiftGuide}
+        onOpenBundleBuilder={() => setBundleBuilderOpen(true)}
+        userEmail={currentUser?.email || ''}
+        userName={currentUser?.name || ''}
+        userPhone={currentUser?.mobile || ''}
+      />
 
       {/* 4. OUR CATEGORY (Row 1: Aries, Taurus, Gemini, Cancer, Leo, Virgo) */}
       <section className="reference-section bg-white" aria-labelledby="cat-heading-1">
@@ -1044,113 +1249,229 @@ export default function App() {
           {/* Filter Tabs */}
           <div className="gift-guide-tabs">
             <button
-              onClick={() => setGiftGuideTab('combination')}
-              className={`gift-guide-tab ${giftGuideTab === 'combination' || giftGuideTab === 'zodiac' ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedStoneFilter(null);
+                setGiftGuideTab('combination');
+              }}
+              className={`gift-guide-tab ${!selectedStoneFilter && (giftGuideTab === 'combination' || giftGuideTab === 'zodiac') ? 'active' : ''}`}
             >
               ✨ Combination Bracelets (₹799)
             </button>
             <button
-              onClick={() => setGiftGuideTab('single')}
-              className={`gift-guide-tab ${giftGuideTab === 'single' ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedStoneFilter(null);
+                setGiftGuideTab('single');
+              }}
+              className={`gift-guide-tab ${!selectedStoneFilter && giftGuideTab === 'single' ? 'active' : ''}`}
             >
               💎 Single Crystal Bracelets (₹599)
             </button>
             <button
-              onClick={() => setGiftGuideTab('salts')}
-              className={`gift-guide-tab ${giftGuideTab === 'salts' ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedStoneFilter(null);
+                setGiftGuideTab('salts');
+              }}
+              className={`gift-guide-tab ${!selectedStoneFilter && giftGuideTab === 'salts' ? 'active' : ''}`}
             >
               🌿 Bath Salts (₹200)
             </button>
             <button
-              onClick={() => setGiftGuideTab('gifting')}
-              className={`gift-guide-tab ${giftGuideTab === 'gifting' ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedStoneFilter(null);
+                setGiftGuideTab('gifting');
+              }}
+              className={`gift-guide-tab ${!selectedStoneFilter && giftGuideTab === 'gifting' ? 'active' : ''}`}
             >
               🎁 Combos & Sets
             </button>
           </div>
 
-          {/* Product Grid */}
-          <div className="reference-product-grid">
-            {giftGuideProducts.map((product) => {
-              const qty = getCardQty(product.id);
-              const isSaved = wishlist.includes(product.id);
+          {/* Availability & Sort Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-slate-200/80 text-xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-slate-500 font-medium">
+                Showing <strong className="text-slate-900">{giftGuideProducts.length}</strong> treasures
+              </span>
+              <button
+                type="button"
+                onClick={() => setInStockOnly((v) => !v)}
+                aria-pressed={inStockOnly}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold cursor-pointer transition ${
+                  inStockOnly
+                    ? 'bg-[#18283e] text-white border-[#18283e]'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <Check className={`size-3.5 ${inStockOnly ? 'opacity-100' : 'opacity-40'}`} />
+                <span>In Stock Only</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBundleBuilderOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#18283e]/30 bg-amber-50 text-[#18283e] hover:bg-amber-100 font-semibold cursor-pointer transition"
+              >
+                <Layers className="size-3.5 text-[#e07038]" />
+                <span>Build Custom Ritual Bundle</span>
+              </button>
+            </div>
 
-              return (
-                <article key={product.id} className="catalog-card">
-                  <div className="catalog-card-image">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      onClick={() => setQuickViewProduct(product)}
-                      className="cursor-pointer"
-                    />
-
-                    {/* Stock status badge */}
-                    <span className="catalog-stock">In Stock</span>
-
-                    {/* Wishlist toggle */}
-                    <button
-                      onClick={() => toggleWishlist(product.id)}
-                      aria-label={isSaved ? `Unsave ${product.name}` : `Save ${product.name}`}
-                      className={`catalog-heart ${isSaved ? 'active' : ''}`}
-                    >
-                      <Heart className={`size-3.5 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
-                    </button>
-
-                    {/* Hover actions */}
-                    <div className="catalog-actions">
-                      <button
-                        onClick={() => setQuickViewProduct(product)}
-                        aria-label={`Quick view ${product.name}`}
-                        title="Quick View"
-                      >
-                        <Eye className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => handleAddToCart(product, qty)}
-                        aria-label={`Add ${product.name} to cart`}
-                        title="Add to Basket"
-                      >
-                        <ShoppingBag className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="catalog-card-copy">
-                    <h3 onClick={() => setQuickViewProduct(product)}>
-                      {product.name}
-                    </h3>
-                    <p className="catalog-sign">
-                      {product.sign} · {product.signHi}
-                    </p>
-                    <p className="catalog-price">
-                      ₹{product.price.toLocaleString('en-IN')}{' '}
-                      {product.compareAtPrice && product.compareAtPrice > product.price && (
-                        <del>₹{product.compareAtPrice.toLocaleString('en-IN')}</del>
-                      )}
-                    </p>
-
-                    <div className="catalog-quantity">
-                      <button
-                        onClick={() => setCardQty(product.id, qty - 1)}
-                        disabled={qty <= 1}
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="size-3" />
-                      </button>
-                      <span>{qty}</span>
-                      <button
-                        onClick={() => setCardQty(product.id, qty + 1)}
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="size-3" />
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            <div className="flex items-center gap-2">
+              <label htmlFor="gift-guide-sort" className="text-slate-500 font-medium flex items-center gap-1">
+                <SlidersHorizontal className="size-3.5" />
+                <span>Sort:</span>
+              </label>
+              <select
+                id="gift-guide-sort"
+                aria-label="Sort products"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as ProductSortOption)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-800 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-[#18283e]/30"
+              >
+                <option value="featured">Featured</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="rating-desc">Top Rated</option>
+              </select>
+            </div>
           </div>
+
+          {selectedStoneFilter && (
+            <div className="flex items-center justify-center gap-3 mb-6 text-xs">
+              <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-950 font-semibold border border-amber-300">
+                Filtering by stone: {selectedStoneFilter}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedStoneFilter(null)}
+                className="text-[#e07038] hover:underline font-bold"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
+
+          {/* Product Grid */}
+          {giftGuideProducts.length === 0 ? (
+            <div className="py-12 text-center bg-white rounded-xl border border-slate-200 space-y-3">
+              <p className="text-sm font-semibold text-slate-800">
+                No products match your current filter selection.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStoneFilter(null);
+                  setInStockOnly(false);
+                  setSortBy('featured');
+                }}
+                className="px-4 py-2 rounded-lg bg-[#18283e] text-white text-xs font-bold hover:bg-[#121e30] cursor-pointer"
+              >
+                Reset Catalog Filters
+              </button>
+            </div>
+          ) : (
+            <div className="reference-product-grid">
+              {giftGuideProducts.map((product) => {
+                const qty = getCardQty(product.id);
+                const isSaved = wishlist.includes(product.id);
+                const liveInfo = liveInventoryMap[product.id];
+                const isOutOfStock = liveInfo ? liveInfo.inventory <= 0 : product.stockStatus === 'out';
+                const isLowStock = !isOutOfStock && (liveInfo ? liveInfo.inventory <= 5 : product.stockStatus === 'low');
+
+                return (
+                  <article key={product.id} className="catalog-card">
+                    <div className="catalog-card-image">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        onClick={() => setQuickViewProduct(product)}
+                        className="cursor-pointer"
+                      />
+
+                      {/* Stock status badge */}
+                      <span
+                        className={`catalog-stock ${
+                          isOutOfStock
+                            ? '!bg-red-700 !text-white'
+                            : isLowStock
+                              ? '!bg-amber-600 !text-white'
+                              : ''
+                        }`}
+                      >
+                        {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
+                      </span>
+
+                      {/* Wishlist toggle */}
+                      <button
+                        onClick={() => toggleWishlist(product.id)}
+                        aria-label={isSaved ? `Unsave ${product.name}` : `Save ${product.name}`}
+                        className={`catalog-heart ${isSaved ? 'active' : ''}`}
+                      >
+                        <Heart className={`size-3.5 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
+                      </button>
+
+                      {/* Hover actions */}
+                      <div className="catalog-actions">
+                        <button
+                          onClick={() => setQuickViewProduct(product)}
+                          aria-label={`Quick view ${product.name}`}
+                          title="Quick View"
+                        >
+                          <Eye className="size-4" />
+                        </button>
+                        <button
+                          disabled={isOutOfStock}
+                          onClick={() => handleAddToCart(product, qty)}
+                          aria-label={
+                            isOutOfStock
+                              ? `${product.name} out of stock`
+                              : `Add ${product.name} to cart`
+                          }
+                          title={isOutOfStock ? 'Out of Stock' : 'Add to Basket'}
+                        >
+                          <ShoppingBag className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="catalog-card-copy">
+                      <h3 onClick={() => setQuickViewProduct(product)}>
+                        {product.name}
+                      </h3>
+                      <p className="catalog-sign">
+                        {product.sign} · {product.signHi}
+                      </p>
+                      <p className="catalog-price">
+                        ₹{product.price.toLocaleString('en-IN')}{' '}
+                        {product.compareAtPrice && product.compareAtPrice > product.price && (
+                          <del>₹{product.compareAtPrice.toLocaleString('en-IN')}</del>
+                        )}
+                      </p>
+
+                      <div className="catalog-quantity">
+                        <button
+                          onClick={() => setCardQty(product.id, qty - 1)}
+                          disabled={qty <= 1 || isOutOfStock}
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="size-3" />
+                        </button>
+                        <span>{qty}</span>
+                        <button
+                          onClick={() => setCardQty(product.id, qty + 1)}
+                          disabled={isOutOfStock}
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -1173,6 +1494,8 @@ export default function App() {
               <img
                 src={bannerZodiacImg}
                 alt="Zodiac Crystal Bracelets — Your sign, your story"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
             </div>
@@ -1188,6 +1511,8 @@ export default function App() {
               <img
                 src={bannerGiftImg}
                 alt="A Thoughtful Gift — A little more personal"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
             </div>
@@ -1203,6 +1528,8 @@ export default function App() {
               <img
                 src={bannerEverydayImg}
                 alt="Everyday Stone Jewellery — Colours to make your own"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
             </div>
@@ -1257,7 +1584,7 @@ export default function App() {
               onClick={() => setQuickViewProduct(ZODIAC_PRODUCTS[0])}
               className="showcase-feature group shadow-md"
             >
-              <img src={showcaseAriesImg} alt="Your sign, your bracelet featured showcase" />
+              <img src={showcaseAriesImg} alt="Your sign, your bracelet featured showcase" loading="lazy" decoding="async" />
               <div className="showcase-feature-glass">
                 Your sign. Your bracelet.
                 <small>Explore the edit →</small>
@@ -1276,6 +1603,8 @@ export default function App() {
                       <img
                         src={product.image}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                         onClick={() => setQuickViewProduct(product)}
                         className="cursor-pointer"
                       />
@@ -1318,7 +1647,7 @@ export default function App() {
               onClick={() => setQuickViewProduct(ZODIAC_PRODUCTS[5])}
               className="showcase-feature group shadow-md"
             >
-              <img src={showcaseVirgoImg} alt="A gift that feels personal featured showcase" />
+              <img src={showcaseVirgoImg} alt="A gift that feels personal featured showcase" loading="lazy" decoding="async" />
               <div className="showcase-feature-glass">
                 A gift that feels personal
                 <small>Explore the edit →</small>
@@ -1337,6 +1666,8 @@ export default function App() {
                       <img
                         src={product.image}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                         onClick={() => setQuickViewProduct(product)}
                         className="cursor-pointer"
                       />
@@ -1518,6 +1849,8 @@ export default function App() {
                     <img
                       src={product.image}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
                       onClick={() => setQuickViewProduct(product)}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -1669,6 +2002,8 @@ export default function App() {
                       <img
                         src={artifact.img}
                         alt={artifact.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
                     </div>
@@ -1682,17 +2017,86 @@ export default function App() {
         </div>
       </section>
 
-      {/* 14. CUSTOMER SAYS! (SAMPLE REVIEWS) */}
+      {/* 13C. CONSULTATIONS & WORKSHOPS INVITATION */}
+      <section className="reference-section bg-white border-b border-stone-200">
+        <div className="shell">
+          <div className="grid md:grid-cols-2 gap-6 items-stretch">
+            <div className="rounded-2xl border border-slate-200 bg-[#fbf9f5] p-6 md:p-8 flex flex-col justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e07038]">
+                  1-on-1 Guided Sessions
+                </span>
+                <h2 className="font-serif text-2xl font-bold text-[#18283e] mt-1">
+                  Reiki, Astrology & Tarot Consultations
+                </h2>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                  Reserve a private slot with Grandmaster Parul Suthar for Reiki Healing, Crystal Guidance, Vedic Astrology, Akashic Record Reading, or Intuitive Tarot.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingInitialTab('consultations');
+                    setBookingModalOpen(true);
+                  }}
+                  className="px-5 py-2.5 bg-[#18283e] hover:bg-[#121e30] text-white rounded-xl text-xs font-bold transition cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Calendar className="size-4 text-[#f3d37a]" />
+                  <span>Book Consultation Slot</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTrackOrderOpen(true)}
+                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Truck className="size-4 text-[#e07038]" />
+                  <span>Track Existing Order</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 md:p-8 flex flex-col justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#8e5e16]">
+                  Live Community Learning
+                </span>
+                <h2 className="font-serif text-2xl font-bold text-[#18283e] mt-1">
+                  Reiki Certification & Crystal Workshops
+                </h2>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                  Join upcoming interactive Reiki Level 1 training, Crystal Cleansing & Zodiac Pairing Masterclasses, and 7-Chakra Sound Bath meditations.
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingInitialTab('workshops');
+                    setBookingModalOpen(true);
+                  }}
+                  className="px-5 py-2.5 bg-[#e07038] hover:bg-[#c95e28] text-white rounded-xl text-xs font-bold transition cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Sparkles className="size-4" />
+                  <span>View Workshops & Reserve Seat</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 14. CUSTOMER SAYS! (SAMPLE COMMUNITY STORIES) */}
       <section className="reference-section bg-[#fcfbf9]">
         <div className="shell">
           <div className="reference-section-heading">
             <h2>Customer Says!</h2>
-            <p>Sample content · real customer experiences & testimonials.</p>
+            <p>Illustrative community reflections highlighting how seekers wear our crystal designs.</p>
           </div>
 
           <div className="review-grid">
             <div className="review-card">
-              <span className="sample-review-label">Illustrative sample — verified customer</span>
+              <span className="sample-review-label">Sample story · Community reflection</span>
               <h3>A personal choice</h3>
               <p>
                 &ldquo;A bracelet chosen for its colours and zodiac connection — a small detail with a personal story that makes my mornings feel grounded.&rdquo;
@@ -1701,7 +2105,7 @@ export default function App() {
                 onClick={() => setQuickViewProduct(ZODIAC_PRODUCTS[0])}
                 className="review-product"
               >
-                <img src={ZODIAC_PRODUCTS[0].image} alt="Aries Crystal Bracelet" />
+                <img src={ZODIAC_PRODUCTS[0].image} alt="Aries Crystal Bracelet" loading="lazy" decoding="async" />
                 <div>
                   <span>Aries Crystal Bracelet</span>
                   <small>Explore bracelet →</small>
@@ -1710,7 +2114,7 @@ export default function App() {
             </div>
 
             <div className="review-card">
-              <span className="sample-review-label">Illustrative sample — verified customer</span>
+              <span className="sample-review-label">Sample story · Community reflection</span>
               <h3>A thoughtful gift</h3>
               <p>
                 &ldquo;A birthday gift inspired by their sign, with natural stone colours that suit their everyday style and arrived with beautiful blessing notes.&rdquo;
@@ -1719,7 +2123,7 @@ export default function App() {
                 onClick={() => setQuickViewProduct(ZODIAC_PRODUCTS[1])}
                 className="review-product"
               >
-                <img src={ZODIAC_PRODUCTS[1].image} alt="Taurus Crystal Bracelet" />
+                <img src={ZODIAC_PRODUCTS[1].image} alt="Taurus Crystal Bracelet" loading="lazy" decoding="async" />
                 <div>
                   <span>Taurus Crystal Bracelet</span>
                   <small>Explore bracelet →</small>
@@ -1728,7 +2132,7 @@ export default function App() {
             </div>
 
             <div className="review-card">
-              <span className="sample-review-label">Illustrative sample — verified customer</span>
+              <span className="sample-review-label">Sample story · Community reflection</span>
               <h3>Everyday inspiration</h3>
               <p>
                 &ldquo;A simple piece to wear with favourite jewellery and a reminder of an intention that matters. The stone textures are remarkably soothing.&rdquo;
@@ -1737,7 +2141,7 @@ export default function App() {
                 onClick={() => setQuickViewProduct(ZODIAC_PRODUCTS[2])}
                 className="review-product"
               >
-                <img src={ZODIAC_PRODUCTS[2].image} alt="Gemini Crystal Bracelet" />
+                <img src={ZODIAC_PRODUCTS[2].image} alt="Gemini Crystal Bracelet" loading="lazy" decoding="async" />
                 <div>
                   <span>Gemini Crystal Bracelet</span>
                   <small>Explore bracelet →</small>
@@ -1908,6 +2312,9 @@ export default function App() {
                 <MessageCircle className="size-4" />
               </a>
             </div>
+            <div className="pt-3">
+              <PWAInstallButton variant="footer" />
+            </div>
           </div>
 
           {/* Explore Links */}
@@ -1942,6 +2349,21 @@ export default function App() {
             <h3>Information</h3>
             <ul>
               <li>
+                <button onClick={() => setTrackOrderOpen(true)}>
+                  Track Your Order
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setBookingInitialTab('consultations');
+                    setBookingModalOpen(true);
+                  }}
+                >
+                  Consultations & Workshops
+                </button>
+              </li>
+              <li>
                 <button onClick={() => setContactModalOpen(true)}>
                   Contact Us
                 </button>
@@ -1949,6 +2371,46 @@ export default function App() {
               <li>
                 <button onClick={() => document.getElementById('homepage-faq')?.scrollIntoView({ behavior: 'smooth' })}>
                   FAQs & Care
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setInfoModalTab('journal');
+                    setInfoModalOpen(true);
+                  }}
+                >
+                  Crystal &amp; Reiki Journal
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setInfoModalTab('shipping');
+                    setInfoModalOpen(true);
+                  }}
+                >
+                  Shipping &amp; Delivery
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setInfoModalTab('returns');
+                    setInfoModalOpen(true);
+                  }}
+                >
+                  Returns &amp; Refunds
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setInfoModalTab('privacy');
+                    setInfoModalOpen(true);
+                  }}
+                >
+                  Privacy &amp; Terms
                 </button>
               </li>
               <li>
@@ -1967,32 +2429,130 @@ export default function App() {
           {/* Stay in the Loop Newsletter */}
           <div>
             <h3>Stay in the Loop</h3>
-            <p>Discover new bracelets, planetary stone stories and thoughtful gifting ideas.</p>
+            <p>Discover new bracelets, planetary stone stories and workshop announcements.</p>
             <form
               className="newsletter-form"
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (newsletterEmail.includes('@')) {
-                  setNewsletterMsg('Thank you for subscribing to ShivAmrit Blessings!');
-                  setNewsletterEmail('');
-                } else {
+                if (!newsletterEmail.includes('@')) {
                   setNewsletterMsg('Please enter a valid email address.');
+                  return;
+                }
+                if (newsletterMode === 'subscribe' && !newsletterConsent) {
+                  setNewsletterMsg('Please tick the opt-in consent box first.');
+                  return;
+                }
+                setNewsletterSubmitting(true);
+                setNewsletterMsg('');
+                try {
+                  const endpoint =
+                    newsletterMode === 'unsubscribe'
+                      ? '/api/newsletter/unsubscribe'
+                      : '/api/newsletter';
+                  const payload =
+                    newsletterMode === 'unsubscribe'
+                      ? { email: newsletterEmail.trim() }
+                      : {
+                          email: newsletterEmail.trim(),
+                          consent: newsletterConsent,
+                          source: 'footer',
+                        };
+                  const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                  });
+                  const data = await res.json();
+                  if (res.ok && data?.success) {
+                    setNewsletterMsg(
+                      data.message ||
+                        (newsletterMode === 'unsubscribe'
+                          ? 'Unsubscribed from newsletter updates.'
+                          : 'Subscribed to ShivAmrit Healers updates!')
+                    );
+                    setNewsletterEmail('');
+                  } else {
+                    setNewsletterMsg(data?.error || 'Could not update subscription right now.');
+                  }
+                } catch {
+                  setNewsletterMsg('Unable to connect to newsletter server.');
+                } finally {
+                  setNewsletterSubmitting(false);
                 }
               }}
             >
+              <div className="flex items-center gap-2 mb-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewsletterMode('subscribe');
+                    setNewsletterMsg('');
+                  }}
+                  className={`px-2 py-0.5 rounded font-semibold cursor-pointer transition ${
+                    newsletterMode === 'subscribe'
+                      ? 'bg-[#f3d37a] text-[#18283e]'
+                      : 'bg-white/10 text-white/75 hover:text-white'
+                  }`}
+                >
+                  Subscribe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewsletterMode('unsubscribe');
+                    setNewsletterMsg('');
+                  }}
+                  className={`px-2 py-0.5 rounded font-semibold cursor-pointer transition ${
+                    newsletterMode === 'unsubscribe'
+                      ? 'bg-[#f3d37a] text-[#18283e]'
+                      : 'bg-white/10 text-white/75 hover:text-white'
+                  }`}
+                >
+                  Unsubscribe
+                </button>
+              </div>
               <div className="newsletter-input">
                 <input
                   type="email"
-                  placeholder="Your email address"
+                  aria-label="Newsletter email address"
+                  placeholder={
+                    newsletterMode === 'unsubscribe'
+                      ? 'Email to unsubscribe'
+                      : 'Your email address'
+                  }
                   value={newsletterEmail}
                   onChange={(e) => setNewsletterEmail(e.target.value)}
                   required
                 />
-                <button type="submit" aria-label="Subscribe to newsletter">
+                <button
+                  type="submit"
+                  disabled={newsletterSubmitting}
+                  aria-label={
+                    newsletterMode === 'unsubscribe'
+                      ? 'Unsubscribe from newsletter'
+                      : 'Subscribe to newsletter'
+                  }
+                >
                   <ArrowRight className="size-4" />
                 </button>
               </div>
-              <small>{newsletterMsg || 'News and sacred arrivals. Subscription service coming soon.'}</small>
+              {newsletterMode === 'subscribe' && (
+                <label className="mt-2.5 flex items-center gap-2 text-[11px] text-white/75 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newsletterConsent}
+                    onChange={(e) => setNewsletterConsent(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>I consent to receive sacred arrival &amp; workshop updates.</span>
+                </label>
+              )}
+              <small>
+                {newsletterMsg ||
+                  (newsletterMode === 'unsubscribe'
+                    ? 'Enter your email above to opt out of future emails.'
+                    : 'Subscribed updates saved directly to our newsletter list.')}
+              </small>
             </form>
           </div>
         </div>
@@ -2026,6 +2586,7 @@ export default function App() {
       </div>
 
       {/* 21. INTERACTIVE MODALS & DRAWERS */}
+      <Suspense fallback={null}>
       <QuickViewModal
         product={quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
@@ -2062,6 +2623,39 @@ export default function App() {
         }}
       />
 
+      <TrackOrderModal
+        isOpen={trackOrderOpen}
+        onClose={() => setTrackOrderOpen(false)}
+      />
+
+      <BookingWorkshopModal
+        isOpen={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        initialTab={bookingInitialTab}
+        currentUser={currentUser}
+      />
+
+      <AdminDashboardModal
+        isOpen={adminModalOpen}
+        onClose={() => setAdminModalOpen(false)}
+      />
+
+      <InfoPagesModal
+        isOpen={infoModalOpen}
+        initialTab={infoModalTab}
+        onClose={() => setInfoModalOpen(false)}
+        onExploreCatalog={scrollToGiftGuide}
+      />
+
+      <BundleBuilderModal
+        isOpen={bundleBuilderOpen}
+        onClose={() => setBundleBuilderOpen(false)}
+        liveInventoryMap={liveInventoryMap}
+        onAddBundleToCart={(bundledProducts) => {
+          bundledProducts.forEach((p) => handleAddToCart(p, 1));
+        }}
+      />
+
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
@@ -2081,6 +2675,7 @@ export default function App() {
           setQuickViewProduct(matched);
         }}
       />
+      </Suspense>
 
       {/* Wishlist Modal */}
       {wishlistModalOpen && (
@@ -2263,6 +2858,63 @@ export default function App() {
           </div>
         </div>
       )}
+      {showResumeCartBanner && cartItems.length > 0 && !isCartOpen && !isCheckoutOpen && (
+        <aside
+          aria-label="Resume saved cart prompt"
+          className="fixed bottom-4 left-4 right-24 sm:right-auto sm:max-w-xs z-40 rounded-2xl border border-amber-300 bg-white p-3.5 shadow-2xl text-slate-900"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="font-serif text-sm font-bold text-[#142438]">
+                Resume Your Sacred Cart ({cartCount})
+              </p>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                {cartItems[0]?.product.name}
+                {cartItems.length > 1 ? ` + ${cartItems.length - 1} more` : ''} saved for you.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss saved cart prompt"
+              onClick={() => {
+                setShowResumeCartBanner(false);
+                try {
+                  sessionStorage.setItem('shivamrit-cart-banner-dismissed', '1');
+                } catch {
+                  // ignore
+                }
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowResumeCartBanner(false);
+                setIsCheckoutOpen(true);
+              }}
+              className="flex-1 rounded-lg bg-[#142438] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#1e334d] transition cursor-pointer"
+            >
+              Complete Order
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowResumeCartBanner(false);
+                setIsCartOpen(true);
+              }}
+              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              View Cart
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <OfflineIndicator />
     </div>
   );
 }

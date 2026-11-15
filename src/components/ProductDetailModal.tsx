@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Star, ShieldCheck, Sparkles, Plus, Minus, ShoppingBag, Zap, Heart, MessageSquare } from 'lucide-react';
 import type { Product } from '../data/products';
-import type { Currency } from '../utils/storeLogic';
 import { ProductVisual } from './ProductVisual';
 
 interface ProductDetailModalProps {
@@ -10,7 +9,6 @@ interface ProductDetailModalProps {
   onClose: () => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onBuyNow: (product: Product, quantity: number) => void;
-  currency: Currency;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -19,20 +17,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onAddToCart,
   onBuyNow,
-  currency,
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'ritual' | 'benefits' | 'lineage'>('ritual');
 
   if (!isOpen || !product) return null;
 
-  const displayPrice = currency === 'USD'
-    ? `$${Math.round(product.priceInr * 0.0122)}`
-    : `₹${product.priceInr.toLocaleString('en-IN')}`;
-
-  const originalPrice = currency === 'USD'
-    ? `$${Math.round(product.originalPriceInr * 0.0122)}`
-    : `₹${product.originalPriceInr.toLocaleString('en-IN')}`;
+  const displayPrice = `₹${product.priceInr.toLocaleString('en-IN')}`;
+  const originalPrice = `₹${product.originalPriceInr.toLocaleString('en-IN')}`;
 
   const savingsInr = product.originalPriceInr - product.priceInr;
   const savingsPercent = Math.round((savingsInr / product.originalPriceInr) * 100);

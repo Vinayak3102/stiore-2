@@ -23,7 +23,7 @@
   html {
     width: 100%;
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
     -webkit-text-size-adjust: 100%;
     box-sizing: border-box;
   }
@@ -42,7 +42,7 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
     position: relative;
   }
 
@@ -50,7 +50,7 @@
     width: 100%;
     max-width: 100vw;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -111,9 +111,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 64px;
-  max-width: 1600px;
+  gap: 6px;
+  min-height: 60px;
+  max-width: 1400px;
   margin-inline: auto;
   padding-inline: 0.75rem;
   width: 100%;
@@ -122,15 +122,23 @@
 
 @media (min-width: 640px) {
   .reference-header-inner {
-    gap: 16px;
-    min-height: 76px;
-    padding-inline: 1.5rem;
+    gap: 12px;
+    min-height: 74px;
+    padding-inline: 1.25rem;
   }
 }
 
 @media (min-width: 1024px) {
   .reference-header-inner {
-    min-height: 88px;
+    gap: 10px;
+    min-height: 82px;
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .reference-header-inner {
+    gap: 14px;
     padding-inline: 2rem;
   }
 }
@@ -138,7 +146,7 @@
 .reference-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   text-decoration: none;
   color: inherit;
   flex-shrink: 0;
@@ -148,7 +156,7 @@
 
 @media (min-width: 640px) {
   .reference-brand {
-    gap: 12px;
+    gap: 10px;
   }
 }
 
@@ -157,8 +165,8 @@
 }
 
 .reference-brand img {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.1);
@@ -170,22 +178,22 @@
 
 @media (min-width: 640px) {
   .reference-brand img {
-    width: 52px;
-    height: 52px;
+    width: 46px;
+    height: 46px;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .reference-brand img {
-    width: 60px;
-    height: 60px;
+    width: 48px;
+    height: 48px;
   }
 }
 
 .reference-brand strong {
   display: block;
   font-family: var(--font-serif);
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: 0.02em;
   font-weight: 700;
   line-height: 1.1;
@@ -196,20 +204,20 @@
 
 @media (min-width: 640px) {
   .reference-brand strong {
-    font-size: 21px;
+    font-size: 18px;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .reference-brand strong {
-    font-size: 24px;
+    font-size: 20px;
   }
 }
 
 .reference-brand small {
   display: block;
-  font-size: 8px;
-  letter-spacing: 0.22em;
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #e6c35c;
   margin-top: 2px;
@@ -219,8 +227,8 @@
 
 @media (min-width: 640px) {
   .reference-brand small {
-    font-size: 9.5px;
-    letter-spacing: 0.26em;
+    font-size: 8.5px;
+    letter-spacing: 0.2em;
     margin-top: 3px;
   }
 }
@@ -235,19 +243,20 @@
     display: flex !important;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: 8px;
     flex-wrap: nowrap;
+    flex-shrink: 0;
   }
 }
 
 @media (min-width: 1280px) {
   .reference-desktop-nav {
-    gap: 18px;
+    gap: 12px;
   }
 }
 
 .reference-desktop-nav a, .reference-desktop-nav button {
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.95);
@@ -257,16 +266,17 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  padding: 6px 4px;
+  padding: 6px 2px;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 @media (min-width: 1280px) {
   .reference-desktop-nav a, .reference-desktop-nav button {
-    font-size: 15px;
+    font-size: 13px;
+    padding: 6px 3px;
   }
 }
 
@@ -300,19 +310,19 @@
 .reference-header-tools {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 @media (min-width: 640px) {
   .reference-header-tools {
-    gap: 8px;
+    gap: 6px;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .reference-header-tools {
-    gap: 10px;
+    gap: 8px;
   }
 }
 
@@ -320,32 +330,45 @@
   display: flex !important;
   align-items: center;
   justify-content: center;
-  width: 36px !important;
-  height: 36px;
+  gap: 6px;
+  width: 32px !important;
+  height: 32px;
   padding: 0;
   background: rgba(255, 255, 255, 0.12);
   border: 1.5px solid rgba(255, 255, 255, 0.22);
   border-radius: 50% !important;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12.5px;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap !important;
   flex-shrink: 0;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 640px) and (max-width: 1023px) {
   .reference-header-tools .reference-search {
-    width: 160px !important;
-    padding: 6px 14px;
+    width: 140px !important;
+    height: 36px;
+    padding: 6px 12px;
     border-radius: 9999px !important;
     justify-content: flex-start;
   }
 }
 
+@media (min-width: 1024px) {
+  .reference-header-tools .reference-search {
+    width: 36px !important;
+    height: 36px;
+  }
+}
+
 @media (min-width: 1280px) {
   .reference-header-tools .reference-search {
-    width: 190px !important;
+    width: 142px !important;
+    height: 36px;
+    padding: 6px 12px;
+    border-radius: 9999px !important;
+    justify-content: flex-start;
   }
 }
 
@@ -355,24 +378,66 @@
   box-shadow: 0 0 14px rgba(212, 175, 55, 0.25);
 }
 
-.reference-header-tools button,
-.reference-header-tools a {
+.reference-header-tools .header-icon-btn {
   position: relative;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   color: var(--navy-foreground);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: background 0.15s;
+  flex-shrink: 0;
 }
 
-.reference-header-tools button:hover,
-.reference-header-tools a:hover {
-  background: rgba(255, 255, 255, 0.08);
+@media (min-width: 640px) {
+  .reference-header-tools .header-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.reference-header-tools .header-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 1024px) {
+  .reference-header-tools .header-mobile-menu-btn {
+    display: none !important;
+  }
+}
+
+.reference-header-tools .header-auth-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+@media (min-width: 640px) {
+  .reference-header-tools .header-auth-btn {
+    height: 36px;
+    padding: 0 11px;
+  }
+}
+
+.reference-header-tools .header-auth-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .tool-badge {
@@ -466,6 +531,36 @@
 .hero-cta:hover {
   background-color: var(--promotion-hover);
   transform: translateY(-1px);
+}
+
+.hero-session-shell {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--navy);
+  color: #ffffff;
+  overflow: hidden;
+  min-height: 480px;
+}
+
+.hero-session-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: opacity 0.4s ease;
+}
+
+.hero-session-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(16, 26, 42, 0.92) 0%,
+    rgba(16, 26, 42, 0.78) 48%,
+    rgba(16, 26, 42, 0.72) 100%
+  );
 }
 
 /* Sections */
@@ -689,9 +784,17 @@
   z-index: 10;
 }
 
-.catalog-card:hover .catalog-actions {
+.catalog-card:hover .catalog-actions,
+.catalog-card:focus-within .catalog-actions {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (hover: none), (max-width: 768px) {
+  .catalog-actions {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .catalog-actions button {

@@ -24,6 +24,8 @@ test-results/
 .env.test.local
 .env.production.local
 !.env.example
+.data/
+public/api/storage/
 
 # Logs
 *.log

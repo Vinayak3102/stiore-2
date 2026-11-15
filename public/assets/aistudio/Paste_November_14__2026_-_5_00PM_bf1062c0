@@ -1,0 +1,1045 @@
+# SHIVAMRIT HEALERS — ULTIMATE E-COMMERCE WEBSITE DEVELOPMENT MASTER PROMPT
+
+## YOUR ROLE
+
+Act as an elite team of senior professionals:
+
+- Full-Stack Software Architect
+- Senior React and TypeScript Developer
+- Backend and Database Engineer
+- E-Commerce Platform Specialist
+- UI/UX Design Director
+- Payment Gateway Integration Specialist
+- Cybersecurity Engineer
+- SEO and Performance Specialist
+- QA Automation Engineer
+- DevOps and Cloud Deployment Engineer
+- CRM and Marketing Automation Specialist
+
+Your mission is to transform my existing Shivamrit Healers website into a **premium, scalable, secure, fully functional, production-ready e-commerce and spiritual wellness platform**.
+
+Do not create only attractive frontend screens. Every feature must work with real backend logic, persistent data, proper validation, and a professional admin dashboard.
+
+---
+
+# 1. PROJECT INFORMATION
+
+**Brand:** Shivamrit Healers
+
+**Brand Tagline:** ALIGN • HEAL • EVOLVE
+
+**GitHub Repository:**
+https://github.com/Vinayak3102/stiore-2
+
+**Existing Store:**
+https://store.shivamrithealers.com/
+
+**Reference Website:**
+https://mantrashaktiorganic.com/
+
+**Hosting:** Hostinger
+
+**Primary Market:** India
+
+**Currency:** INR (₹)
+
+**Languages:** English initially, with architecture supporting Hindi and Gujarati.
+
+## VERY IMPORTANT RULES
+
+1. Analyze my existing GitHub repository completely before making changes.
+2. Preserve my existing brand name, original logo, images, products, product categories, services, and existing working features.
+3. Never delete existing products or categories without explicit approval.
+4. Never copy the reference website's name, products, images, branding, content, or proprietary code.
+5. Use the reference website only for ideas about functionality, navigation, and customer experience.
+6. Upgrade the existing codebase rather than unnecessarily rewriting the entire website.
+7. Maintain compatibility with my actual Hostinger hosting environment.
+8. Never hardcode passwords, private API keys, or payment secrets.
+9. Do not use fake reviews, invented testimonials, fake orders, or pretend success messages.
+10. Do not make guaranteed medical, healing, or financial outcome claims.
+11. Preserve all existing important data during migrations.
+12. Never deploy directly to production without testing, backups, and approval.
+
+---
+
+# 2. EXISTING WEBSITE AUDIT
+
+First inspect the entire repository.
+
+Review:
+
+- `src/App.tsx`
+- All `src/components/`
+- `src/data/products.ts`
+- `src/data/storeProducts.ts`
+- `src/utils/authStorage.ts`
+- `src/utils/storeLogic.ts`
+- `src/components/CheckoutModal.tsx`
+- `src/components/AuthModal.tsx`
+- `server.ts`
+- `server.js`
+- `public/api/`
+- `package.json`
+- `.env.example`
+- Hostinger deployment files
+- Existing tests
+- All other relevant files
+
+Identify which features are:
+
+- Already available and functioning
+- Partially implemented
+- Missing
+- Insecure or incorrectly implemented
+- No longer needed
+
+Create a detailed feature-gap report.
+
+## Known Issues to Verify and Resolve
+
+The previous code audit identified these concerns:
+
+- Customer passwords are stored in browser localStorage.
+- Authentication requires a proper secure backend.
+- Some Razorpay credentials are hardcoded in source files.
+- Payment amounts rely on frontend-submitted values.
+- Node and PHP payment implementations both exist.
+- Persistent order database and order tracking are incomplete.
+- COD orders need server-side persistence.
+- Products and inventory are primarily maintained in static code.
+- Newsletter subscription is not connected to a real subscriber system.
+- Some reviews are illustrative samples.
+- Cart and wishlist can start with sample products.
+- Payment confirmation messages may imply notifications were sent without actual delivery.
+
+Verify each issue against the latest code before fixing it.
+
+Remove exposed payment secrets, rotate affected credentials, and implement proper secret management.
+
+---
+
+# 3. PREMIUM WEBSITE DESIGN
+
+Create a luxurious, professional, modern spiritual wellness e-commerce experience.
+
+## Design Identity
+
+Visual direction:
+
+- Premium spiritual wellness brand
+- Elegant, calming, trustworthy
+- Bright, clean, uncluttered
+- Luxury presentation without excessive decoration
+- Mobile-first responsive design
+
+Preserve the actual existing Shivamrit Healers logo and brand identity.
+
+Use the existing brand palette, with refined supporting colors where appropriate:
+
+- Elegant ivory and cream
+- Rich navy or other existing brand colors
+- Muted gold highlights
+- Subtle complementary colors
+
+## Homepage Sections
+
+Create or improve:
+
+1. Announcement bar for offers and free-shipping rules.
+2. Professional header with logo.
+3. Search with autocomplete.
+4. Login and customer account.
+5. Wishlist.
+6. Shopping cart.
+7. Mobile navigation.
+8. Premium hero banner.
+9. Shop by category.
+10. Shop by zodiac sign.
+11. Featured products.
+12. Bestselling products based on real sales.
+13. New arrivals.
+14. Promotional collections.
+15. Personalized product discovery.
+16. Customer reviews from verified data.
+17. Healing services introduction.
+18. Consultation booking section.
+19. Upcoming workshops.
+20. About Shivamrit Healers.
+21. Educational articles.
+22. Newsletter subscription.
+23. Frequently asked questions.
+24. Contact details and WhatsApp support.
+25. Footer with policies and social media links.
+
+All layouts must work smoothly on desktop, tablet, and mobile.
+
+---
+
+# 4. PRODUCT CATALOGUE MANAGEMENT
+
+Preserve all products and categories already defined in the repository.
+
+Existing product groups may include zodiac bracelets, crystal products, bath salts, malas, spiritual accessories, gift sets, and other existing catalogue items.
+
+Do not replace them with reference website products.
+
+## Product Features
+
+Each product should support:
+
+- Unique product ID
+- SKU
+- Product name
+- Category and subcategory
+- Product images
+- Multiple gallery images
+- Product description
+- Short description
+- Regular price
+- Sale price
+- Inventory
+- Stock availability
+- Weight and dimensions
+- Product variants, where applicable
+- Shipping eligibility
+- Related products
+- SEO metadata
+- Status: Draft / Active / Archived
+- Authentic customer reviews
+- Product care instructions
+
+Create proper backend product management.
+
+The admin must be able to add, edit, archive, and update products without changing source code.
+
+---
+
+# 5. SMART PRODUCT SEARCH AND FILTERS
+
+Implement:
+
+- Live product search
+- Search autocomplete
+- Search suggestions
+- Product thumbnail suggestions
+- Search result page
+- No-results handling
+- Category filters
+- Price range filters
+- Zodiac filters
+- Crystal/stone type filters
+- Availability filters
+- New arrivals sorting
+- Price low-to-high sorting
+- Price high-to-low sorting
+- Popularity sorting based on actual data
+- Customer rating sorting using authentic reviews
+- Mobile filter drawer
+- Clear-all filters
+
+Filters and search must work together.
+
+Use efficient queries and pagination for scalable catalogues.
+
+---
+
+# 6. CUSTOMER AUTHENTICATION AND ACCOUNTS
+
+Replace insecure browser-based authentication with a secure managed or server-side system.
+
+Prefer a proven authentication provider such as Supabase Auth if technically appropriate.
+
+Required:
+
+- Customer registration
+- Email/password login
+- Secure password reset
+- Email verification
+- Optional Google sign-in
+- Optional mobile OTP using a properly configured provider
+- Secure session management
+- Logout
+- Protected customer routes
+- Rate limiting on sensitive operations
+- Customer profile management
+- Saved shipping addresses
+- Account deletion workflow
+- Privacy-conscious data handling
+
+Never store passwords in localStorage or plaintext databases.
+
+## Customer Dashboard
+
+Include:
+
+- My Profile
+- My Orders
+- Track Orders
+- My Wishlist
+- Saved Addresses
+- Payment and refund status
+- Consultation Bookings
+- Workshop Registrations
+- Support Requests
+- Account Settings
+
+Customer data must be private and protected by server-side authorization.
+
+---
+
+# 7. SHOPPING CART AND WISHLIST
+
+Implement a production-ready cart.
+
+Features:
+
+- Add to cart
+- Update quantities
+- Remove items
+- Cart subtotal
+- Discount calculations
+- Shipping calculations
+- Cart total
+- Stock availability validation
+- Persistent guest cart
+- Logged-in customer cart
+- Cart merge on login
+- Empty cart state
+- Continue shopping
+- Recommended products
+- Wishlist add/remove
+- Wishlist synchronization for logged-in customers
+- Wishlist-to-cart action
+
+Remove automatically prefilled sample cart and wishlist items for real customers.
+
+---
+
+# 8. SECURE CHECKOUT AND PAYMENT SYSTEM
+
+## Checkout Features
+
+Implement:
+
+- Guest checkout
+- Logged-in checkout
+- Saved delivery addresses
+- Shipping address validation
+- Indian PIN code validation
+- Shipping method selection
+- Coupon application
+- Order summary
+- Tax calculations where applicable
+- Secure payment
+- Cash on Delivery, when enabled
+- Order confirmation
+- Payment failure handling
+- Retry payment
+
+## Razorpay Integration
+
+Use Razorpay with secure backend integration.
+
+Required:
+
+1. Load cart from trusted server-side product data.
+2. Recalculate product prices and discounts on the server.
+3. Validate inventory and shipping.
+4. Create an internal pending order.
+5. Generate the Razorpay order from the validated amount.
+6. Complete payment through Razorpay Checkout.
+7. Verify the payment signature on the backend.
+8. Process verified Razorpay webhooks.
+9. Handle duplicate webhook events safely.
+10. Confirm final payment status before fulfillment.
+11. Update order status in the database.
+12. Reduce inventory safely.
+13. Create invoice data.
+14. Trigger confirmation notifications.
+15. Handle failed or abandoned payments.
+
+Use idempotency and safe transaction handling to prevent duplicate orders or stock deductions.
+
+Keep payment secrets exclusively on the server.
+
+## Cash on Delivery
+
+COD must create a real persistent order with correct payment and fulfillment statuses.
+
+Never show an order as confirmed unless its creation is successfully recorded.
+
+---
+
+# 9. ORDER MANAGEMENT AND TRACKING
+
+Build a complete order management system.
+
+## Customer Features
+
+- Unique order number
+- Order history
+- Order details
+- Order status timeline
+- Payment status
+- Shipping status
+- Tracking number
+- Courier information
+- Invoice download
+- Cancellation request
+- Return request
+- Refund status
+- Customer support link
+
+## Suggested Order Statuses
+
+- Pending Payment
+- Payment Confirmed
+- Processing
+- Packed
+- Shipped
+- Out for Delivery
+- Delivered
+- Cancelled
+- Return Requested
+- Returned
+- Refunded
+
+Keep payment status and fulfillment status separate.
+
+Create a public order-tracking page with appropriate verification to protect customer information.
+
+---
+
+# 10. SHIPPING AND DELIVERY MANAGEMENT
+
+Build shipping configuration that supports:
+
+- Delivery PIN code eligibility
+- Shipping zones
+- Shipping costs
+- Free-shipping thresholds
+- Product weight and dimensions
+- Courier assignment
+- Tracking numbers
+- Dispatch dates
+- Delivery status
+- Estimated delivery dates based on real service data
+- Shipping labels
+- Return shipment tracking
+
+Design integration support for an Indian shipping provider such as Shiprocket or an equivalent supported provider.
+
+Do not invent live courier statuses or estimated delivery times.
+
+---
+
+# 11. COMPLETE ADMIN DASHBOARD
+
+Create a secure admin panel separate from customer access.
+
+Suggested route: `/admin`
+
+Use server-enforced role-based access control.
+
+## Admin Dashboard Overview
+
+Display:
+
+- Total orders
+- Paid orders
+- Pending orders
+- Revenue
+- Refunds
+- Average order value
+- Top products
+- Low-stock products
+- New customers
+- Consultation bookings
+- Workshop registrations
+- Sales charts
+
+All figures must come from actual database records.
+
+## Admin Modules
+
+### Product Management
+Create, edit, archive, publish, upload images, manage categories and variants.
+
+### Inventory Management
+Stock counts, low-stock alerts, stock movements, restocking and adjustments.
+
+### Order Management
+View orders, update fulfillment status, shipping details, cancellations, refunds and invoices.
+
+### Customer Management
+View customer profiles and order history with appropriate access permissions.
+
+### Coupon Management
+Create and edit coupons, discount types, usage limits, start/end dates, minimum purchase and eligible products.
+
+### Content Management
+Manage homepage banners, offers, FAQs, blogs, testimonials and promotional content.
+
+### Booking Management
+Manage services, practitioners, appointments, scheduling and booking statuses.
+
+### Workshop Management
+Create events, manage available seats, registrations, payments and session links.
+
+### Reports
+Download CSV reports for orders, payments, products, stock, customers and registrations.
+
+### Settings
+Shipping, payment configuration, notifications, tax settings, roles and store preferences.
+
+Create a secure audit log for sensitive admin actions.
+
+---
+
+# 12. COUPONS, DISCOUNTS AND OFFERS
+
+Implement a database-driven promotion system.
+
+Features:
+
+- Percentage discounts
+- Fixed amount discounts
+- Free shipping coupons
+- First-order discounts
+- Category-based offers
+- Product-specific offers
+- Minimum cart value
+- Expiration dates
+- Per-customer usage limits
+- Overall usage limits
+- Automatic discounts
+- Bundle offers
+- Coupon stacking rules
+- Promotion analytics
+
+All discounts must be recalculated and validated on the server.
+
+---
+
+# 13. CONSULTATION BOOKING SYSTEM
+
+Shivamrit Healers also offers spiritual and wellness services.
+
+Support services such as:
+
+- Reiki Healing
+- Crystal Healing
+- Astrology Solutions
+- Akashic Record Reading
+- Tarot Card Reading
+
+Preserve the actual existing service names and details.
+
+Features:
+
+- Service information
+- Service price and duration
+- Available appointment slots
+- Date and time selection
+- Practitioner availability
+- Online payment
+- Booking confirmation
+- Email and WhatsApp reminders
+- Rescheduling
+- Cancellation rules
+- Admin booking calendar
+- Google Meet or Zoom link management where configured
+- Booking history
+
+Prevent double-booking and handle timezone differences correctly.
+
+If an existing Shivamrit consultation website already provides working functionality, analyze whether to integrate it rather than duplicate it.
+
+---
+
+# 14. WORKSHOP AND MASTERCLASS MANAGEMENT
+
+Implement:
+
+- Upcoming workshop listing
+- Workshop details
+- Registration form
+- Seat limits
+- Ticket pricing
+- Secure payment
+- Registration confirmation
+- Workshop session links
+- Reminder automation
+- Attendee list
+- Enrollment status
+- Admin management
+- Optional course resources and post-event follow-up
+
+Do not generate certificates or attendance claims automatically unless verified.
+
+---
+
+# 15. PERSONALIZED SHOPPING FEATURES
+
+Create useful and transparent product discovery tools.
+
+Features:
+
+- Shop by zodiac
+- Shop by crystal
+- Shop by category
+- Gift finder
+- Related products
+- Recently viewed products
+- Frequently purchased together, once sufficient real data exists
+- Custom product bundles
+- Chakra-themed product exploration
+- Personalized recommendations
+
+Existing Chakra Quiz functionality should be preserved and improved.
+
+Present quiz results as spiritual or lifestyle exploration, not medical diagnosis.
+
+Do not claim guaranteed healing outcomes.
+
+---
+
+# 16. CUSTOMER REVIEWS AND TRUST
+
+Build authentic review management.
+
+Features:
+
+- Verified purchase reviews
+- Star ratings
+- Written customer feedback
+- Optional customer-uploaded images
+- Review moderation
+- Admin response
+- Product rating summaries
+- Review reporting
+- Spam prevention
+
+Remove or clearly distinguish illustrative sample reviews.
+
+Never present invented reviews or artificially generated statistics as verified customer experiences.
+
+---
+
+# 17. WHATSAPP, EMAIL AND CRM AUTOMATION
+
+Implement an optional marketing automation layer using properly authorized service providers.
+
+## Transactional Notifications
+
+- Order confirmation
+- Payment confirmation
+- Failed payment notification
+- Shipment update
+- Delivery notification
+- Refund update
+- Booking confirmation
+- Appointment reminder
+- Workshop registration
+- Workshop reminder
+
+## Marketing Automation
+
+- Welcome emails
+- Opt-in newsletter
+- Abandoned cart reminders
+- Wishlist back-in-stock updates
+- Product announcements
+- Festival promotions
+- Repeat purchase campaigns
+- Customer segments
+- Consent preferences
+- Unsubscribe support
+
+Use official WhatsApp Business Platform integrations or another approved provider.
+
+Do not claim WhatsApp or email notifications were delivered unless confirmed by the provider.
+
+---
+
+# 18. SEO AND CONTENT MANAGEMENT
+
+Implement:
+
+- Clean product URLs
+- Category-specific URLs
+- Unique page titles
+- SEO descriptions
+- Canonical URLs
+- Open Graph tags
+- Product structured data
+- Breadcrumb structured data
+- Sitemap.xml
+- Robots.txt
+- Product image alt text
+- Blog management
+- Educational articles
+- FAQ content
+- Search Console compatibility
+- Analytics event tracking
+- Core Web Vitals improvements
+
+Create proper indexable pages where suitable, not exclusively modal-based product views.
+
+Ensure spiritual wellness content is educational and does not promise medical cures.
+
+---
+
+# 19. ANALYTICS AND BUSINESS REPORTING
+
+Integrate Google Analytics 4 when configured.
+
+Support:
+
+- Product impressions
+- Product views
+- Add to cart
+- Begin checkout
+- Purchase
+- Purchase revenue
+- Coupon usage
+- Checkout abandonment
+- Conversion rate
+- Average order value
+- Returning customers
+- Product performance
+- Booking conversions
+- Workshop registrations
+
+Support Meta Pixel / Conversions API when configured and compliant with consent requirements.
+
+Prevent duplicate purchase events.
+
+---
+
+# 20. DATABASE ARCHITECTURE
+
+Propose a secure relational database, preferably PostgreSQL/Supabase if compatible with the final infrastructure.
+
+Suggested core entities:
+
+- Users / Auth identities
+- Customer profiles
+- Customer addresses
+- Roles and permissions
+- Categories
+- Products
+- Product images
+- Product variants
+- Inventory
+- Inventory movements
+- Shopping carts
+- Cart items
+- Wishlists
+- Orders
+- Order items
+- Payment transactions
+- Payment webhook events
+- Coupons
+- Coupon redemptions
+- Shipping records
+- Returns
+- Refunds
+- Reviews
+- Newsletter subscribers
+- Notification logs
+- Consultation services
+- Practitioners
+- Availability slots
+- Bookings
+- Workshops
+- Workshop registrations
+- Blog posts
+- Site settings
+- Admin audit logs
+
+Use appropriate relational keys, constraints, indexes and migrations.
+
+Use Row Level Security where appropriate, with additional server-side authorization.
+
+Never expose database service-role credentials in frontend code.
+
+---
+
+# 21. SECURITY REQUIREMENTS
+
+Implement:
+
+- Secure authentication
+- Authorization on every protected API
+- Role-based admin access
+- Strong session management
+- Password reset and account recovery
+- Environment variable management
+- Rate limiting
+- Input validation
+- Safe file uploads
+- XSS protection
+- CSRF protection where applicable
+- SQL injection protection
+- Payment signature verification
+- Webhook signature verification
+- Idempotent payment processing
+- Secure HTTP headers
+- HTTPS enforcement
+- Server-side price and coupon validation
+- Audit logging
+- Secret rotation
+- Automated backups
+- Restore testing
+- Dependency vulnerability checks
+
+Never place production secrets in GitHub, generated frontend bundles or downloadable deployment archives.
+
+---
+
+# 22. PERFORMANCE AND ACCESSIBILITY
+
+Optimize for:
+
+- Fast mobile loading
+- Responsive layout
+- Image optimization
+- Lazy loading
+- Efficient JavaScript bundles
+- API pagination
+- Database indexes
+- Loading skeletons
+- Useful empty states
+- Accessible forms
+- Keyboard navigation
+- Color contrast
+- Error boundaries
+- Clear error messages
+- Smooth checkout
+- Reduced-motion accessibility
+
+Target strong Core Web Vitals without inventing performance scores.
+
+---
+
+# 23. HOSTINGER CLOUD DEPLOYMENT
+
+Inspect the actual Hostinger plan and deployment capabilities before selecting the backend runtime.
+
+The existing repository contains React, Vite, Express/Node.js, and PHP API implementations.
+
+Select one appropriate production API architecture and avoid maintaining conflicting payment implementations.
+
+Recommended workflow:
+
+1. Audit existing Hostinger configuration.
+2. Create a separate development branch.
+3. Configure staging.
+4. Create database and migrations.
+5. Configure secure environment variables.
+6. Implement and test APIs.
+7. Build the React frontend.
+8. Configure HTTPS and domain routing.
+9. Run payment integration in test mode.
+10. Test admin and customer journeys.
+11. Test database backups and restore.
+12. Deploy staging.
+13. Conduct production readiness checks.
+14. Obtain explicit approval.
+15. Deploy production.
+16. Verify production health, payment and order workflows.
+17. Maintain rollback instructions.
+
+Production domain must remain:
+
+https://store.shivamrithealers.com/
+
+Do not break the existing live store while developing.
+
+---
+
+# 24. TESTING REQUIREMENTS
+
+Create and run tests for:
+
+- User registration
+- Authentication and permissions
+- Product search
+- Category filtering
+- Cart operations
+- Wishlist
+- Price calculation
+- Coupons
+- Shipping charges
+- Inventory validation
+- Razorpay order creation
+- Payment verification
+- Webhook deduplication
+- Payment failures
+- COD orders
+- Order creation
+- Order history
+- Admin product updates
+- Inventory deduction
+- Refund workflows
+- Booking conflicts
+- Workshop capacity
+- Notifications
+- Mobile responsiveness
+
+Add automated integration tests and end-to-end checkout tests.
+
+Do not report a test as passed unless it was actually executed successfully.
+
+---
+
+# 25. IMPLEMENTATION PHASES
+
+## PHASE 1 — Audit and Security
+
+- Review repository
+- Create backup strategy
+- Identify architecture
+- Remove exposed secrets
+- Fix insecure authentication
+- Prepare database design
+- Create implementation specification
+
+## PHASE 2 — Database and Core Backend
+
+- Database migrations
+- Customer accounts
+- Products and categories
+- Inventory
+- Order persistence
+- Payment records
+- Admin authorization
+
+## PHASE 3 — Shopping and Checkout
+
+- Product filtering
+- Search
+- Cart synchronization
+- Wishlist synchronization
+- Secure checkout
+- Razorpay
+- COD
+- Coupon validation
+- Shipping calculation
+
+## PHASE 4 — Admin Operations
+
+- Admin dashboard
+- Product management
+- Inventory
+- Orders
+- Shipping
+- Coupons
+- Reports
+
+## PHASE 5 — Customer Experience
+
+- Customer dashboard
+- Order history
+- Order tracking
+- Reviews
+- Refund and return requests
+- Invoices
+
+## PHASE 6 — Shivamrit Wellness Features
+
+- Consultation bookings
+- Workshop registration
+- Chakra Quiz improvements
+- Custom bundles
+- Gift finder
+
+## PHASE 7 — Marketing and SEO
+
+- Newsletter
+- WhatsApp automation
+- Email automation
+- Abandoned cart recovery
+- SEO
+- Blog
+- Analytics
+
+## PHASE 8 — Testing and Deployment
+
+- Security testing
+- End-to-end testing
+- Performance testing
+- Mobile QA
+- Staging deployment
+- Backup and rollback validation
+- Production deployment after approval
+
+---
+
+# 26. STRICT DEVELOPMENT WORKFLOW
+
+Follow these instructions:
+
+**STEP 1:** Read the complete repository.
+
+**STEP 2:** Produce an evidence-based audit of the current implementation.
+
+**STEP 3:** Present a feature matrix: Existing / Partial / Missing / Critical.
+
+**STEP 4:** Present the recommended technical architecture and database schema.
+
+**STEP 5:** Present a development roadmap with dependencies, acceptance criteria, and affected files.
+
+**STEP 6:** Wait for approval before making significant code changes.
+
+**STEP 7:** After approval, implement one phase at a time in a separate Git branch.
+
+**STEP 8:** Execute relevant tests and fix errors.
+
+**STEP 9:** Provide a summary of changed files, database migrations, environment variables, and test results.
+
+**STEP 10:** Ask for approval before deployment or irreversible data changes.
+
+If information is missing, clearly state assumptions and ask only the necessary questions.
+
+Do not claim deployment, payment integration, notifications or tests are successful without verifying them.
+
+---
+
+# 27. REQUIRED DELIVERABLES
+
+Provide:
+
+1. Complete Website Audit Report
+2. Feature Gap Analysis
+3. Architecture Document
+4. Database Schema and Migrations
+5. Security Remediation Plan
+6. Frontend Implementation
+7. Backend API Implementation
+8. Admin Dashboard
+9. Automated Tests
+10. Integration Setup Guide
+11. Hostinger Deployment Guide
+12. Backup and Rollback Guide
+13. Final Testing Report
+14. Future Maintenance Roadmap
+
+Maintain clear documentation so another developer can understand and continue the project.
+
+---
+
+# FINAL INSTRUCTION
+
+**Build Shivamrit Healers as a real, complete, secure, maintainable and scalable e-commerce business platform—not a static demonstration website.**
+
+Preserve the existing Shivamrit Healers identity, products, services, and useful design work.
+
+Use MantraShakti Organic strictly as a functionality reference.
+
+Prioritize:
+
+SECURITY → DATABASE → AUTHENTICATION → PAYMENTS → ORDERS → INVENTORY → ADMIN → SHIPPING → CUSTOMER EXPERIENCE → BOOKING → AUTOMATION → SEO → DEPLOYMENT.
+
+**START NOW WITH A COMPLETE AUDIT OF THE GITHUB REPOSITORY AND PRESENT THE PHASE 1 DEVELOPMENT PLAN. DO NOT MODIFY PRODUCTION UNTIL APPROVED.**
